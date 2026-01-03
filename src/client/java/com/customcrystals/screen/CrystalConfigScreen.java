@@ -2,22 +2,32 @@ package com.customcrystals.screen;
 
 import com.customcrystals.config.CrystalConfig;
 import com.customcrystals.config.CrystalConfigManager;
+import io.wispforest.owo.ui.base.BaseOwoScreen;
+import io.wispforest.owo.ui.component.ButtonComponent;
+import io.wispforest.owo.ui.component.CheckboxComponent;
+import io.wispforest.owo.ui.component.ColorPickerComponent;
+import io.wispforest.owo.ui.component.DiscreteSliderComponent;
+import io.wispforest.owo.ui.component.LabelComponent;
+import io.wispforest.owo.ui.container.Containers;
+import io.wispforest.owo.ui.container.FlowLayout;
+import io.wispforest.owo.ui.container.ScrollContainer;
+import io.wispforest.owo.ui.core.HorizontalAlignment;
+import io.wispforest.owo.ui.core.Insets;
+import io.wispforest.owo.ui.core.OwoUIAdapter;
+import io.wispforest.owo.ui.core.Sizing;
+import io.wispforest.owo.ui.core.Surface;
+import io.wispforest.owo.ui.core.VerticalAlignment;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.NotNull;
 
-public class CrystalConfigScreen extends Screen {
-    private static final int CONTROL_WIDTH = 220;
-    private static final int CONTROL_HEIGHT = 20;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+public class CrystalConfigScreen extends BaseOwoScreen<FlowLayout> {
     private final Screen parent;
     private CrystalConfig working;
-    private EditBox coreColorField;
-    private EditBox frame1ColorField;
-    private EditBox frame2ColorField;
 
     public CrystalConfigScreen(Screen parent) {
         super(Component.translatable("screen.customcrystals.title"));
@@ -25,140 +35,160 @@ public class CrystalConfigScreen extends Screen {
     }
 
     @Override
-    protected void init() {
+    protected @NotNull OwoUIAdapter<FlowLayout> createAdapter() {
+        return OwoUIAdapter.create(this, Containers::verticalFlow);
+    }
+
+    @Override
+    protected void build(FlowLayout root) {
         this.working = copyConfig(CrystalConfigManager.get());
-        int centerX = this.width / 2;
-        int y = 60;
 
-        addRenderableWidget(new FloatSlider(centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT,
-                0.25f, 3.0f, working.scale,
-                value -> Component.translatable("option.customcrystals.scale", String.format("%.2fx", value)),
-                value -> working.scale = (float) value));
+        FlowLayout content = Containers.verticalFlow(Sizing.fill(100), Sizing.content());
+        content.gap(10);
+        content.verticalAlignment(VerticalAlignment.TOP);
+        content.horizontalAlignment(HorizontalAlignment.CENTER);
 
-        y += 26;
-        addRenderableWidget(new FloatSlider(centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT,
-                -1.5f, 1.5f, working.verticalOffset,
-                value -> Component.translatable("option.customcrystals.vertical_offset", String.format("%.2f", value)),
-                value -> working.verticalOffset = (float) value));
+        LabelComponent titleLabel = io.wispforest.owo.ui.component.Components.label(this.title.copy()).color(io.wispforest.owo.ui.core.Color.WHITE).shadow(true);
+        titleLabel.horizontalSizing(Sizing.fill(100));
+        titleLabel.horizontalTextAlignment(HorizontalAlignment.CENTER);
+        content.child(titleLabel);
 
-        y += 26;
-        addRenderableWidget(new FloatSlider(centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT,
-                0.25f, 3.0f, working.spinMultiplier,
-                value -> Component.translatable("option.customcrystals.spin", String.format("%.2fx", value)),
-                value -> working.spinMultiplier = (float) value));
+        FlowLayout sliders = Containers.verticalFlow(Sizing.fill(100), Sizing.content());
+        sliders.gap(10);
+        sliders.child(sliderCard("option.customcrystals.scale", 0.25f, 3.0f, working.scale, v -> working.scale = v, v -> String.format("%.2fx", v)));
+        sliders.child(sliderCard("option.customcrystals.vertical_offset", -1.5f, 1.5f, working.verticalOffset, v -> working.verticalOffset = v, v -> String.format("%.2f", v)));
+        sliders.child(sliderCard("option.customcrystals.spin", 0.25f, 3.0f, working.spinMultiplier, v -> working.spinMultiplier = v, v -> String.format("%.2fx", v)));
+        sliders.child(toggleRow("option.customcrystals.beam", working.beamEnabled, value -> working.beamEnabled = value));
+        content.child(sliders);
 
-        y += 26;
-        addRenderableWidget(CycleButton.onOffBuilder()
-            .withInitialValue(working.coreTintEnabled)
-                .create(centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT,
-                Component.translatable("option.customcrystals.core_tint"),
-                (button, value) -> working.coreTintEnabled = value));
+        FlowLayout colorCards = Containers.verticalFlow(Sizing.fill(100), Sizing.content());
+        colorCards.gap(8);
+        colorCards.child(colorCard("option.customcrystals.core_color", "option.customcrystals.core_tint", working.coreTintEnabled, value -> working.coreTintEnabled = value, working.coreColor, value -> working.coreColor = value));
+        colorCards.child(colorCard("option.customcrystals.frames_color", "option.customcrystals.frames_tint", working.framesTintEnabled, value -> working.framesTintEnabled = value, working.framesColor, value -> working.framesColor = value));
+        content.child(colorCards);
 
-        y += 26;
-        addRenderableWidget(CycleButton.onOffBuilder()
-                .withInitialValue(working.beamEnabled)
-                .create(centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT,
-                        Component.translatable("option.customcrystals.beam"),
-                        (button, value) -> working.beamEnabled = value));
+        FlowLayout buttons = Containers.horizontalFlow(Sizing.fill(100), Sizing.content());
+        buttons.gap(8);
 
-        y += 30;
-        coreColorField = new EditBox(this.font, centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT, Component.translatable("option.customcrystals.core_color"));
-        coreColorField.setMaxLength(6);
-        coreColorField.setValue(String.format("%06X", working.coreColor));
-        addRenderableWidget(coreColorField);
+        ButtonComponent cancel = io.wispforest.owo.ui.component.Components.button(Component.translatable("gui.cancel"), button -> closeToParent());
+        cancel.sizing(Sizing.fill(33), Sizing.fixed(20));
 
-        y += 26;
-        addRenderableWidget(CycleButton.onOffBuilder()
-            .withInitialValue(working.frame1TintEnabled)
-            .create(centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT,
-                Component.translatable("option.customcrystals.frame1_tint"),
-                (button, value) -> working.frame1TintEnabled = value));
+        ButtonComponent reset = io.wispforest.owo.ui.component.Components.button(Component.translatable("controls.reset"), button -> {
+            CrystalConfig defaults = CrystalConfig.defaults();
+            CrystalConfigManager.update(defaults);
+            Minecraft client = this.minecraft;
+            if (client != null) {
+                client.setScreen(new CrystalConfigScreen(parent));
+            }
+        });
+        reset.sizing(Sizing.fill(33), Sizing.fixed(20));
 
-        y += 26;
-        frame1ColorField = new EditBox(this.font, centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT, Component.translatable("option.customcrystals.frame1_color"));
-        frame1ColorField.setMaxLength(6);
-        frame1ColorField.setValue(String.format("%06X", working.frame1Color));
-        addRenderableWidget(frame1ColorField);
+        ButtonComponent save = io.wispforest.owo.ui.component.Components.button(Component.translatable("gui.done"), button -> {
+            CrystalConfigManager.update(working);
+            closeToParent();
+        });
+        save.sizing(Sizing.fill(33), Sizing.fixed(20));
 
-        y += 26;
-        addRenderableWidget(CycleButton.onOffBuilder()
-            .withInitialValue(working.frame2TintEnabled)
-            .create(centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT,
-                Component.translatable("option.customcrystals.frame2_tint"),
-                (button, value) -> working.frame2TintEnabled = value));
+        buttons.child(cancel);
+        buttons.child(reset);
+        buttons.child(save);
+        content.child(buttons);
 
-        y += 26;
-        frame2ColorField = new EditBox(this.font, centerX - CONTROL_WIDTH / 2, y, CONTROL_WIDTH, CONTROL_HEIGHT, Component.translatable("option.customcrystals.frame2_color"));
-        frame2ColorField.setMaxLength(6);
-        frame2ColorField.setValue(String.format("%06X", working.frame2Color));
-        addRenderableWidget(frame2ColorField);
+        ScrollContainer<FlowLayout> scroller = Containers.verticalScroll(Sizing.fill(100), Sizing.fill(100), content);
+        scroller.surface(Surface.VANILLA_TRANSLUCENT);
+        scroller.padding(Insets.of(16));
+        scroller.scrollbar(ScrollContainer.Scrollbar.vanilla());
 
-        int buttonY = this.height - 30;
-        addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> close())
-                .bounds(centerX - CONTROL_WIDTH / 2, buttonY, 100, CONTROL_HEIGHT)
-                .build());
-
-        addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> {
-                    applyEdits();
-                    CrystalConfigManager.update(working);
-                    close();
-                })
-                .bounds(centerX + CONTROL_WIDTH / 2 - 100, buttonY, 100, CONTROL_HEIGHT)
-                .build());
+        root.child(scroller);
     }
 
-    @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        graphics.fillGradient(0, 0, this.width, this.height, 0xB0000000, 0xE0000000);
-        super.render(graphics, mouseX, mouseY, delta);
-        int centerX = this.width / 2;
-        int labelX = centerX - CONTROL_WIDTH / 2;
-        graphics.drawString(this.font, Component.translatable("option.customcrystals.core_color_label"),
-            labelX, coreColorField.getY() - 10, 0xFFFFFF, false);
-        graphics.drawString(this.font, Component.translatable("option.customcrystals.frame1_color_label"),
-            labelX, frame1ColorField.getY() - 10, 0xFFFFFF, false);
-        graphics.drawString(this.font, Component.translatable("option.customcrystals.frame2_color_label"),
-            labelX, frame2ColorField.getY() - 10, 0xFFFFFF, false);
+    private FlowLayout sliderCard(String key, float min, float max, float currentValue, Consumer<Float> onChange, Function<Float, String> formatter) {
+        FlowLayout card = Containers.verticalFlow(Sizing.fill(100), Sizing.content());
+        card.surface(Surface.flat(0xAA111111));
+        card.padding(Insets.of(10));
+        card.gap(6);
+
+        LabelComponent label = io.wispforest.owo.ui.component.Components.label(Component.translatable(key, formatter.apply(currentValue))).color(io.wispforest.owo.ui.core.Color.WHITE).shadow(true);
+        card.child(label);
+
+        int minInt = Math.round(min * 100);
+        int maxInt = Math.round(max * 100);
+
+        DiscreteSliderComponent slider = io.wispforest.owo.ui.component.Components.discreteSlider(Sizing.fill(100), minInt, maxInt)
+                .decimalPlaces(0)
+                .snap(true)
+                .setFromDiscreteValue(Math.round(currentValue * 100));
+        slider.onChanged().subscribe(val -> {
+            float value = ((float) val) / 100f;
+            onChange.accept(value);
+            label.text(Component.translatable(key, formatter.apply(value)));
+        });
+        card.child(slider);
+        return card;
     }
 
-    @Override
-    public void onClose() {
-        close();
+    private FlowLayout toggleRow(String key, boolean initial, Consumer<Boolean> onToggle) {
+        FlowLayout row = Containers.horizontalFlow(Sizing.fill(100), Sizing.content());
+        row.gap(8);
+        row.verticalAlignment(VerticalAlignment.CENTER);
+        row.surface(Surface.flat(0xAA111111));
+        row.padding(Insets.of(8));
+
+        CheckboxComponent checkbox = io.wispforest.owo.ui.component.Components.checkbox(Component.translatable(key));
+        checkbox.checked(initial);
+        checkbox.onChanged(onToggle::accept);
+        row.child(checkbox);
+
+        return row;
     }
 
-    private void applyEdits() {
-        working.coreColor = parseColor(coreColorField.getValue());
-        working.frame1Color = parseColor(frame1ColorField.getValue());
-        working.frame2Color = parseColor(frame2ColorField.getValue());
+    private FlowLayout colorCard(String titleKey, String toggleKey, boolean tintEnabled, Consumer<Boolean> onToggle, int color, Consumer<Integer> onColorChange) {
+        FlowLayout card = Containers.verticalFlow(Sizing.fill(100), Sizing.content());
+        card.surface(Surface.flat(0xAA111111));
+        card.padding(Insets.of(10));
+        card.gap(8);
+
+        FlowLayout header = Containers.horizontalFlow(Sizing.fill(100), Sizing.content());
+        header.verticalAlignment(VerticalAlignment.CENTER);
+        header.gap(8);
+
+        CheckboxComponent toggle = io.wispforest.owo.ui.component.Components.checkbox(Component.translatable(toggleKey));
+        toggle.checked(tintEnabled);
+        toggle.onChanged(onToggle::accept);
+
+        LabelComponent label = io.wispforest.owo.ui.component.Components.label(Component.translatable(titleKey)).color(io.wispforest.owo.ui.core.Color.WHITE).shadow(true);
+        header.child(label);
+        header.child(toggle);
+
+        ColorPickerComponent picker = new ColorPickerComponent();
+        picker.selectedColor(io.wispforest.owo.ui.core.Color.ofRgb(color));
+        picker.showAlpha(false);
+        picker.sizing(Sizing.fill(100), Sizing.fixed(140));
+        picker.onChanged().subscribe(next -> onColorChange.accept(next.rgb()));
+
+        card.child(header);
+        card.child(picker);
+        return card;
     }
 
-    private void close() {
+    private void closeToParent() {
         Minecraft client = this.minecraft;
         if (client != null) {
             client.setScreen(parent);
         }
     }
 
-    private int parseColor(String input) {
-        String clean = input.trim().replace("#", "");
-        if (clean.length() > 6) {
-            clean = clean.substring(clean.length() - 6);
-        }
-        try {
-            return Integer.parseInt(clean, 16) & 0xFFFFFF;
-        } catch (NumberFormatException e) {
-            return CrystalConfig.defaults().coreColor;
-        }
+    @Override
+    public void onClose() {
+        closeToParent();
     }
 
     private static CrystalConfig copyConfig(CrystalConfig base) {
         CrystalConfig copy = new CrystalConfig();
         copy.coreTintEnabled = base.coreTintEnabled;
         copy.coreColor = base.coreColor;
-        copy.frame1TintEnabled = base.frame1TintEnabled;
-        copy.frame1Color = base.frame1Color;
-        copy.frame2TintEnabled = base.frame2TintEnabled;
-        copy.frame2Color = base.frame2Color;
+        copy.framesTintEnabled = base.framesTintEnabled;
+        copy.framesColor = base.framesColor;
         copy.scale = base.scale;
         copy.verticalOffset = base.verticalOffset;
         copy.beamEnabled = base.beamEnabled;

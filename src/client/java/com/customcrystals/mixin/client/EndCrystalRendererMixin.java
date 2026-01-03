@@ -3,109 +3,185 @@ package com.customcrystals.mixin.client;
 import com.customcrystals.config.CrystalConfig;
 import com.customcrystals.config.CrystalConfigManager;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.EndCrystalModel;
-import net.minecraft.client.model.Model;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EndCrystalRenderer;
+import net.minecraft.client.renderer.entity.EnderDragonRenderer;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.state.EndCrystalRenderState;
-import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.phys.Vec3;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArgs;
-import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Mixin to customize End Crystal rendering with per-part coloring.
+ * Uses submitCustomGeometry to render each ModelPart with its own color
+ * via the traditional ModelPart.render(PoseStack, VertexConsumer, light, overlay, color) method.
+ */
 @Mixin(EndCrystalRenderer.class)
-public abstract class EndCrystalRendererMixin {
+public abstract class EndCrystalRendererMixin extends EntityRenderer<EndCrystal, EndCrystalRenderState> {
 
-    @ModifyArgs(
-            method = "submit(Lnet/minecraft/client/renderer/entity/state/EndCrystalRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;scale(FFF)V")
-    )
-    private void customcrystals$scaleCrystal(Args args) {
-        CrystalConfig config = CrystalConfigManager.get();
-        if (config == null) return;
+    @Shadow @Final private EndCrystalModel model;
+    
+    @Shadow
+    public static float getY(float ageInTicks) {
+        throw new AssertionError();
+    }
+    
+    @Unique
+    private static final ResourceLocation CRYSTAL_TEXTURE = ResourceLocation.withDefaultNamespace("textures/entity/end_crystal/end_crystal.png");
+    
+    @Unique
+    private static final RenderType RENDER_TYPE = RenderType.entityCutoutNoCull(CRYSTAL_TEXTURE);
 
-        float factor = config.scale * (float) args.get(0);
-        args.set(0, factor);
-        args.set(1, factor);
-        args.set(2, factor);
+    protected EndCrystalRendererMixin(EntityRendererProvider.Context context) {
+        super(context);
     }
 
-    @ModifyArgs(
+    @Inject(
             method = "submit(Lnet/minecraft/client/renderer/entity/state/EndCrystalRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;translate(FFF)V")
+            at = @At("HEAD"),
+            cancellable = true
     )
-    private void customcrystals$offsetCrystal(Args args) {
+    private void customcrystals$submitInject(EndCrystalRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo ci) {
         CrystalConfig config = CrystalConfigManager.get();
-        if (config == null) return;
-
-        float yOffset = (float) args.get(1) + config.verticalOffset;
-        args.set(1, yOffset);
-    }
-
-    @org.spongepowered.asm.mixin.injection.Redirect(
-            method = "submit(Lnet/minecraft/client/renderer/entity/state/EndCrystalRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/RenderType;IIILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V")
-    )
-    private void customcrystals$colorParts(SubmitNodeCollector collector, Model model, Object stateObj, PoseStack poseStack, RenderType renderType, int light, int overlay, int color, ModelFeatureRenderer.CrumblingOverlay crumbling) {
-        if (!(model instanceof EndCrystalModel crystalModel) || !(stateObj instanceof EndCrystalRenderState) || poseStack == null) {
-            collector.submitModel(model, stateObj, poseStack, renderType, light, overlay, color, crumbling);
+        
+        // If no custom rendering needed, let vanilla handle it
+        if (config == null || (!config.coreTintEnabled && !config.framesTintEnabled)) {
             return;
         }
 
-        CrystalConfig config = CrystalConfigManager.get();
-        EndCrystalModelAccessor accessor = (EndCrystalModelAccessor) crystalModel;
+        // Cancel vanilla rendering and do our own
+        ci.cancel();
+
+        // Get model parts via accessor
+        EndCrystalModelAccessor accessor = (EndCrystalModelAccessor) model;
         ModelPart base = accessor.customcrystals$getBase();
-        ModelPart outer = accessor.customcrystals$getOuterGlass();
-        ModelPart inner = accessor.customcrystals$getInnerGlass();
         ModelPart cube = accessor.customcrystals$getCube();
+        ModelPart innerGlass = accessor.customcrystals$getInnerGlass();
+        ModelPart outerGlass = accessor.customcrystals$getOuterGlass();
 
-        boolean baseVisible = base.visible;
-        boolean outerVisible = outer.visible;
-        boolean innerVisible = inner.visible;
-        boolean cubeVisible = cube.visible;
+        int light = state.lightCoords;
+        int overlay = OverlayTexture.NO_OVERLAY;
 
-        setVisibility(base, outer, inner, cube, false);
+        // Calculate colors (ARGB format with full alpha)
+        int coreColor = config.coreTintEnabled ? (0xFF000000 | (config.coreColor & 0xFFFFFF)) : 0xFFFFFFFF;
+        int framesColor = config.framesTintEnabled ? (0xFF000000 | (config.framesColor & 0xFFFFFF)) : 0xFFFFFFFF;
 
-        // Base uses vanilla texture color
-        if (baseVisible) {
-            base.visible = true;
-            collector.submitModel(model, stateObj, poseStack, renderType, light, overlay, 0xFFFFFFFF, crumbling);
-            base.visible = false;
+        // Apply scale (vanilla uses 2.0)
+        float scale = 2.0f * config.scale;
+
+        poseStack.pushPose();
+        poseStack.scale(scale, scale, scale);
+        poseStack.translate(0.0f, -0.5f, 0.0f);
+
+        // Render base using submitCustomGeometry with ModelPart.render()
+        if (state.showsBottom && base.visible) {
+            final int baseLight = light;
+            collector.submitCustomGeometry(poseStack, RENDER_TYPE, (pose, vertexConsumer) -> {
+                PoseStack tempStack = new PoseStack();
+                tempStack.last().pose().set(pose.pose());
+                tempStack.last().normal().set(pose.normal());
+                base.render(tempStack, vertexConsumer, baseLight, overlay, 0xFFFFFFFF);
+            });
         }
 
-        if (cubeVisible) {
-            cube.visible = true;
-            int packed = pickColor(config == null ? null : config.coreTintEnabled, config == null ? null : config.coreColor);
-            collector.submitModel(model, stateObj, poseStack, renderType, light, overlay, packed, crumbling);
+        // Render outer glass (frames color)
+        if (outerGlass.visible) {
+            final int frameLight = light;
+            final int frameColor = framesColor;
+            
+            // Save child visibility and temporarily hide them
+            boolean innerWasVisible = innerGlass.visible;
+            innerGlass.visible = false;
+            
+            collector.submitCustomGeometry(poseStack, RENDER_TYPE, (pose, vertexConsumer) -> {
+                PoseStack tempStack = new PoseStack();
+                tempStack.last().pose().set(pose.pose());
+                tempStack.last().normal().set(pose.normal());
+                outerGlass.render(tempStack, vertexConsumer, frameLight, overlay, frameColor);
+            });
+            
+            innerGlass.visible = innerWasVisible;
+        }
+
+        // Render inner glass (frames color)
+        if (innerGlass.visible) {
+            final int frameLight = light;
+            final int frameColor = framesColor;
+            
+            // Save child visibility and temporarily hide cube
+            boolean cubeWasVisible = cube.visible;
             cube.visible = false;
+            
+            // We need to apply outerGlass's transform to get innerGlass in the right position
+            poseStack.pushPose();
+            outerGlass.translateAndRotate(poseStack);
+            
+            collector.submitCustomGeometry(poseStack, RENDER_TYPE, (pose, vertexConsumer) -> {
+                PoseStack tempStack = new PoseStack();
+                tempStack.last().pose().set(pose.pose());
+                tempStack.last().normal().set(pose.normal());
+                innerGlass.render(tempStack, vertexConsumer, frameLight, overlay, frameColor);
+            });
+            
+            poseStack.popPose();
+            cube.visible = cubeWasVisible;
         }
 
-        if (innerVisible) {
-            inner.visible = true;
-            int packed = pickColor(config == null ? null : config.frame1TintEnabled, config == null ? null : config.frame1Color);
-            collector.submitModel(model, stateObj, poseStack, renderType, light, overlay, packed, crumbling);
-            inner.visible = false;
+        // Render cube/core (core color)
+        if (cube.visible) {
+            final int cubeLight = light;
+            final int cubeColor = coreColor;
+            
+            // Apply parent transforms: outerGlass -> innerGlass -> cube
+            poseStack.pushPose();
+            outerGlass.translateAndRotate(poseStack);
+            innerGlass.translateAndRotate(poseStack);
+            
+            collector.submitCustomGeometry(poseStack, RENDER_TYPE, (pose, vertexConsumer) -> {
+                PoseStack tempStack = new PoseStack();
+                tempStack.last().pose().set(pose.pose());
+                tempStack.last().normal().set(pose.normal());
+                cube.render(tempStack, vertexConsumer, cubeLight, overlay, cubeColor);
+            });
+            
+            poseStack.popPose();
         }
 
-        if (outerVisible) {
-            outer.visible = true;
-            int packed = pickColor(config == null ? null : config.frame2TintEnabled, config == null ? null : config.frame2Color);
-            collector.submitModel(model, stateObj, poseStack, renderType, light, overlay, packed, crumbling);
-            outer.visible = false;
+        poseStack.popPose();
+
+        // Render beam if needed
+        if (state.beamOffset != null && config.beamEnabled) {
+            float yOffset = getY(state.ageInTicks);
+            Vec3 beamOffset = state.beamOffset;
+            poseStack.translate(beamOffset);
+            EnderDragonRenderer.submitCrystalBeams(
+                    (float) -beamOffset.x(),
+                    (float) -beamOffset.y() + yOffset,
+                    (float) -beamOffset.z(),
+                    state.ageInTicks,
+                    poseStack,
+                    collector,
+                    light
+            );
         }
 
-        base.visible = baseVisible;
-        outer.visible = outerVisible;
-        inner.visible = innerVisible;
-        cube.visible = cubeVisible;
+        // Call super for any additional rendering (like name tags)
+        super.submit(state, poseStack, collector, cameraState);
     }
 
     @Inject(
@@ -113,31 +189,6 @@ public abstract class EndCrystalRendererMixin {
             at = @At("TAIL")
     )
     private void customcrystals$applyConfig(EndCrystal crystal, EndCrystalRenderState state, float tickDelta, CallbackInfo ci) {
-        CrystalConfig config = CrystalConfigManager.get();
-        if (config == null) {
-            return;
-        }
-
-        state.ageInTicks *= config.spinMultiplier;
-
-        if (!config.beamEnabled) {
-            state.beamOffset = null;
-        } else if (state.beamOffset != null && Math.abs(config.verticalOffset) > 0.0001f) {
-            state.beamOffset = state.beamOffset.subtract(new Vec3(0.0, config.verticalOffset, 0.0));
-        }
-    }
-
-    private static void setVisibility(ModelPart base, ModelPart outer, ModelPart inner, ModelPart cube, boolean value) {
-        base.visible = value;
-        outer.visible = value;
-        inner.visible = value;
-        cube.visible = value;
-    }
-
-    private static int pickColor(Boolean enabled, Integer color) {
-        if (enabled != null && enabled) {
-            return 0xFF000000 | (color == null ? 0xFFFFFF : color & 0xFFFFFF);
-        }
-        return 0xFFFFFFFF;
+        // Config adjustments are handled in the submit method
     }
 }

@@ -1,12 +1,15 @@
 package com.customcrystals.config;
 
 public class CrystalConfig {
-    public boolean coreTintEnabled = true;
+    // Core (inner cube)
+    public boolean coreTintEnabled = false;
     public int coreColor = 0xFFFFFF;
-    public boolean frame1TintEnabled = true;
-    public int frame1Color = 0xFFFFFF;
-    public boolean frame2TintEnabled = true;
-    public int frame2Color = 0xFFFFFF;
+    
+    // Frames (both inner and outer rotating frames)
+    public boolean framesTintEnabled = false;
+    public int framesColor = 0xFFFFFF;
+    
+    // General settings
     public float scale = 1.0f;
     public float verticalOffset = 0.0f;
     public boolean beamEnabled = true;

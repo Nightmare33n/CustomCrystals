@@ -57,12 +57,11 @@ public final class CrystalConfigManager {
 
     private static CrystalConfig sanitize(CrystalConfig config) {
         CrystalConfig cleaned = CrystalConfig.defaults();
+
         cleaned.coreTintEnabled = config.coreTintEnabled;
         cleaned.coreColor = sanitizeColor(config.coreColor);
-        cleaned.frame1TintEnabled = config.frame1TintEnabled;
-        cleaned.frame1Color = sanitizeColor(config.frame1Color);
-        cleaned.frame2TintEnabled = config.frame2TintEnabled;
-        cleaned.frame2Color = sanitizeColor(config.frame2Color);
+        cleaned.framesTintEnabled = config.framesTintEnabled;
+        cleaned.framesColor = sanitizeColor(config.framesColor);
         cleaned.scale = clamp(config.scale, 0.25f, 4.0f);
         cleaned.verticalOffset = clamp(config.verticalOffset, -1.5f, 1.5f);
         cleaned.beamEnabled = config.beamEnabled;
