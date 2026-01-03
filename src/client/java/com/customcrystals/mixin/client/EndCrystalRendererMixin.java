@@ -84,9 +84,6 @@ public abstract class EndCrystalRendererMixin extends EntityRenderer<EndCrystal,
         // Apply scale (vanilla uses 2.0)
         float scale = 2.0f * config.scale;
         
-        // Get animation parameters from render state
-        float yOffset = getY(state.ageInTicks);
-        
         // IMPORTANT: Call setupAnim to apply rotations to the model parts!
         // This sets the xRot and yRot on outerGlass, innerGlass, and cube
         model.setupAnim(state);
@@ -94,10 +91,6 @@ public abstract class EndCrystalRendererMixin extends EntityRenderer<EndCrystal,
         poseStack.pushPose();
         poseStack.scale(scale, scale, scale);
         poseStack.translate(0.0f, -0.5f, 0.0f);
-        
-        // Apply the Y bobbing offset for the floating animation
-        float bobOffset = yOffset * 0.5f;
-        poseStack.translate(0.0f, bobOffset, 0.0f);
 
         // Render base using submitCustomGeometry with ModelPart.render()
         if (state.showsBottom && base.visible) {
@@ -123,6 +116,7 @@ public abstract class EndCrystalRendererMixin extends EntityRenderer<EndCrystal,
                 PoseStack tempStack = new PoseStack();
                 tempStack.last().pose().set(pose.pose());
                 tempStack.last().normal().set(pose.normal());
+                // render() internally calls translateAndRotate which applies the rotation from setupAnim
                 outerGlass.render(tempStack, vertexConsumer, frameLight, overlay, frameColor);
             });
             
@@ -138,7 +132,7 @@ public abstract class EndCrystalRendererMixin extends EntityRenderer<EndCrystal,
             boolean cubeWasVisible = cube.visible;
             cube.visible = false;
             
-            // We need to apply outerGlass's transform to get innerGlass in the right position
+            // Apply outerGlass's transform first (since innerGlass is a child of outerGlass)
             poseStack.pushPose();
             outerGlass.translateAndRotate(poseStack);
             
@@ -146,6 +140,7 @@ public abstract class EndCrystalRendererMixin extends EntityRenderer<EndCrystal,
                 PoseStack tempStack = new PoseStack();
                 tempStack.last().pose().set(pose.pose());
                 tempStack.last().normal().set(pose.normal());
+                // render() applies innerGlass's own rotation
                 innerGlass.render(tempStack, vertexConsumer, frameLight, overlay, frameColor);
             });
             
@@ -158,7 +153,7 @@ public abstract class EndCrystalRendererMixin extends EntityRenderer<EndCrystal,
             final int cubeLight = light;
             final int cubeColor = coreColor;
             
-            // Apply parent transforms: outerGlass -> innerGlass -> cube
+            // Apply parent transforms: outerGlass -> innerGlass (cube is child of innerGlass)
             poseStack.pushPose();
             outerGlass.translateAndRotate(poseStack);
             innerGlass.translateAndRotate(poseStack);
@@ -167,6 +162,7 @@ public abstract class EndCrystalRendererMixin extends EntityRenderer<EndCrystal,
                 PoseStack tempStack = new PoseStack();
                 tempStack.last().pose().set(pose.pose());
                 tempStack.last().normal().set(pose.normal());
+                // render() applies cube's own rotation
                 cube.render(tempStack, vertexConsumer, cubeLight, overlay, cubeColor);
             });
             
