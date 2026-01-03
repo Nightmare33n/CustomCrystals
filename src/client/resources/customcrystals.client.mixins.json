@@ -1,0 +1,12 @@
+{
+	"required": false,
+	"package": "com.customcrystals.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"EndCrystalRendererMixin",
+		"EndCrystalModelAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

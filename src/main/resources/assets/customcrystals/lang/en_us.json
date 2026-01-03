@@ -1,0 +1,18 @@
+{
+  "screen.customcrystals.title": "Custom Crystals",
+  "option.customcrystals.scale": "Scale: %s",
+  "option.customcrystals.vertical_offset": "Vertical Offset: %s",
+  "option.customcrystals.spin": "Spin Speed: %s",
+  "option.customcrystals.core_tint": "Core Tint Enabled",
+  "option.customcrystals.beam": "Beam Enabled",
+  "option.customcrystals.core_color_label": "Core Hex Colour (RRGGBB)",
+  "option.customcrystals.core_color": "Core Colour",
+  "option.customcrystals.frame1_tint": "Frame 1 Tint Enabled",
+  "option.customcrystals.frame1_color_label": "Frame 1 Hex Colour (RRGGBB)",
+  "option.customcrystals.frame1_color": "Frame 1 Colour",
+  "option.customcrystals.frame2_tint": "Frame 2 Tint Enabled",
+  "option.customcrystals.frame2_color_label": "Frame 2 Hex Colour (RRGGBB)",
+  "option.customcrystals.frame2_color": "Frame 2 Colour",
+  "key.customcrystals.open_config": "Open Custom Crystal Config",
+  "key.category.customcrystals.controls": "Custom Crystals"
+}

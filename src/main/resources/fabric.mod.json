@@ -1,0 +1,47 @@
+{
+	"schemaVersion": 1,
+	"id": "customcrystals",
+	"version": "${version}",
+	"name": "Custom Crystals",
+	"description": "Client-side customization for end crystals with a friendly GUI.",
+	"authors": [
+		"You"
+	],
+	"contact": {
+		"homepage": "",
+		"sources": ""
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/customcrystals/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.customcrystals.CustomCrystals"
+		],
+		"client": [
+			"com.customcrystals.CustomCrystalsClient"
+		],
+		"modmenu": [
+			"com.customcrystals.CustomCrystalsModMenu"
+		],
+		"fabric-datagen": [
+			"com.customcrystals.datagen.CustomCrystalsDataGenerator"
+		]
+	},
+	"mixins": [
+		"customcrystals.mixins.json",
+		{
+			"config": "customcrystals.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.18.4",
+		"minecraft": "~1.21.10",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}
